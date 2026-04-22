@@ -45,42 +45,44 @@ function init() {
 ===================== */
 function createCubeAt(x, y, type) {
 
-  // 범위 기록
+  // 좌표 범위 기록
   minX = Math.min(minX, x);
   maxX = Math.max(maxX, x);
   minY = Math.min(minY, y);
   maxY = Math.max(maxY, y);
 
-  let color = 0xaaaaaa;
+  let color = 0xcccccc;
   let height = 1;
 
+  // ===== 지형 타입 =====
   if (type.includes("산맥")) {
-    color = 0x8b4513;
+    color = 0x8b4513;   // 갈색
     height = 3;
 
   } else if (type.includes("웅덩이")) {
-    color = 0x1e90ff;
+    color = 0x1e90ff;   // 파랑
     height = 0.5;
 
   } else if (type.includes("탄광")) {
-    color = 0x666666;
+    color = 0x666666;   // 회색
     height = 1;
 
   } else if (type.includes("Trap")) {
-    color = 0x8a2be2;
+    color = 0x800080;   // 보라
     height = 1;
 
+  // ===== 열 타입 (색상 팔레트 고정) =====
   } else if (type.includes("1열")) {
-    color = 0x7cfc00;
+    color = 0x00ff00;   // 초록
 
   } else if (type.includes("2열")) {
-    color = 0x00aa00;
+    color = 0xaaff00;   // 연두
 
   } else if (type.includes("3열")) {
-    color = 0xffa500;
+    color = 0xff8800;   // 주황
 
   } else if (type.includes("4열")) {
-    color = 0xdc143c;
+    color = 0xcc0000;   // 빨강
   }
 
   const mesh = new THREE.Mesh(
@@ -88,7 +90,7 @@ function createCubeAt(x, y, type) {
     new THREE.MeshStandardMaterial({ color })
   );
 
-  // ✅ Y축 반전 (엑셀 좌표계와 일치)
+  // 엑셀 좌표계 보정 (Y 반전)
   mesh.position.set(x, height / 2, -y);
   scene.add(mesh);
 }
