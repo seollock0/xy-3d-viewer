@@ -1,10 +1,10 @@
 let scene, camera, renderer, controls;
 
-// 오브젝트 좌표 범위 추적
+// 좌표 범위
 let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 
-// Grid 참조
+// Grid
 let gridHelper = null;
 
 init();
@@ -21,11 +21,10 @@ function init() {
     60,
     window.innerWidth / (window.innerHeight * 0.85),
     0.1,
-    1000
+    2000
   );
-  camera.position.set(20, 25, 20);
+  camera.position.set(20, 30, 20);
 
-  // ✅ PNG 저장을 위한 핵심 옵션 포함
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     preserveDrawingBuffer: true
@@ -35,10 +34,7 @@ function init() {
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // 조명
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(20, 30, 20);
-  scene.add(light);
+  scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
   window.addEventListener("resize", onWindowResize);
@@ -49,33 +45,31 @@ function init() {
 ===================== */
 function createCubeAt(x, y, type) {
 
-  // 좌표 범위 기록 (Grid 확장용)
+  // 범위 기록
   minX = Math.min(minX, x);
   maxX = Math.max(maxX, x);
   minY = Math.min(minY, y);
   maxY = Math.max(maxY, y);
 
-  let color = 0x00aa00;
+  let color = 0xaaaaaa;
   let height = 1;
 
-  // 지형 / 특수 오브젝트
   if (type.includes("산맥")) {
     color = 0x8b4513;
     height = 3;
-
-  } else if (type.includes("탄광")) {
-    color = 0x666666;
-    height = 1; // ✅ 요청대로 탄광 높이 1
 
   } else if (type.includes("웅덩이")) {
     color = 0x1e90ff;
     height = 0.5;
 
+  } else if (type.includes("탄광")) {
+    color = 0x666666;
+    height = 1;
+
   } else if (type.includes("Trap")) {
     color = 0x8a2be2;
     height = 1;
 
-  // 1~4열 색상 구분
   } else if (type.includes("1열")) {
     color = 0x7cfc00;
 
@@ -89,39 +83,14 @@ function createCubeAt(x, y, type) {
     color = 0xdc143c;
   }
 
-  const geometry = new THREE.BoxGeometry(1, height, 1);
-  const material = new THREE.MeshStandardMaterial({ color });
-  const cube = new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1, height, 1),
+    new THREE.MeshStandardMaterial({ color })
+  );
 
-  cube.position.set(x, height / 2, y);
-  scene.add(cube);
-}
-
-/* =====================
-   TXT 파일 로드
-===================== */
-function loadFile() {
-  const file = document.getElementById("fileInput").files[0];
-  if (!file) {
-    alert("파일을 선택하세요");
-    return;
-  }
-
-  // 초기화
-  minX = Infinity; maxX = -Infinity;
-  minY = Infinity; maxY = -Infinity;
-
-  if (gridHelper) {
-    scene.remove(gridHelper);
-    gridHelper = null;
-  }
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    parseTXT(e.target.result);
-    updateGrid();
-  };
-  reader.readAsText(file);
+  // ✅ Y축 반전 (엑셀 좌표계와 일치)
+  mesh.position.set(x, height / 2, -y);
+  scene.add(mesh);
 }
 
 /* =====================
@@ -131,10 +100,10 @@ function parseTXT(text) {
   const lines = text.split(/\r?\n/);
 
   lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
+    const row = line.trim();
+    if (!row) return;
 
-    const parts = trimmed.split(/\s+/);
+    const parts = row.split(/\s+/);
     const x = Number(parts[0]);
     const y = Number(parts[1]);
     const type = parts.slice(2).join(" ");
@@ -146,63 +115,102 @@ function parseTXT(text) {
 }
 
 /* =====================
-   Grid 자동 확장
+   Grid 생성
 ===================== */
 function updateGrid() {
-  const width = maxX - minX + 1;
-  const depth = maxY - minY + 1;
+  if (gridHelper) scene.remove(gridHelper);
 
-  const padding = 2;
-  const size = Math.max(width, depth) + padding;
-
-  if (gridHelper) {
-    scene.remove(gridHelper);
-  }
+  const width = maxX - minX + 2;
+  const depth = maxY - minY + 2;
+  const size = Math.max(width, depth) + 2;
 
   gridHelper = new THREE.GridHelper(size, size);
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
-    (minY + maxY) / 2
+    -(minY + maxY) / 2
   );
-
   scene.add(gridHelper);
 
-  // 카메라 중심 보정
   controls.target.set(
     (minX + maxX) / 2,
     0,
-    (minY + maxY) / 2
+    -(minY + maxY) / 2
   );
   controls.update();
 }
 
 /* =====================
-   PNG 저장 (전역)
+   파일 업로드
 ===================== */
-function savePNG() {
-  if (!renderer) {
-    alert("렌더러가 초기화되지 않았습니다.");
-    return;
-  }
+function loadFile() {
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("파일을 선택하세요");
 
-  const link = document.createElement("a");
-  link.download = "map_capture.png";
-  link.href = renderer.domElement.toDataURL("image/png");
-  link.click();
+  resetScene();
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    parseTXT(e.target.result);
+    updateGrid();
+  };
+  reader.readAsText(file);
 }
 
 /* =====================
-   렌더 루프
+   ✅ GitHub Issue 로딩
 ===================== */
+async function loadFromIssue() {
+  const issueNo = document.getElementById("issueNumber").value;
+  if (!issueNo) return alert("Issue 번호 입력");
+
+  resetScene();
+
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNo}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Issue 불러오기 실패");
+
+    const data = await res.json();
+    if (!data.body) throw new Error("Issue 본문에 좌표 없음");
+
+    parseTXT(data.body);
+    updateGrid();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* =====================
+   PNG 저장
+===================== */
+function savePNG() {
+  const a = document.createElement("a");
+  a.download = "map_capture.png";
+  a.href = renderer.domElement.toDataURL("image/png");
+  a.click();
+}
+
+/* =====================
+   유틸
+===================== */
+function resetScene() {
+  minX = Infinity; maxX = -Infinity;
+  minY = Infinity; maxY = -Infinity;
+
+  if (gridHelper) scene.remove(gridHelper);
+
+  scene.children = scene.children.filter(
+    o => o.type === "Light" || o.type === "AmbientLight"
+  );
+}
+
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
 
-/* =====================
-   리사이즈 대응
-===================== */
 function onWindowResize() {
   camera.aspect = window.innerWidth / (window.innerHeight * 0.85);
   camera.updateProjectionMatrix();
