@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <title>XY 3D Cube Viewer</title>
 
-  <link rel="stylesheet" hrefh2>XY 좌표 입력 → 3D 큐브 생성</h2>
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>XY 좌표 입력 → 3D 큐브 생성</h2>
 
 <div id="ui">
   X: <input type="number" id="xInput" value="0">
@@ -24,9 +29,9 @@
 <div id="scene"></div>
 
 <!-- Three.js (r128) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/threept>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
-<!-- OrbitControls (전역 THREE.OrbitControls 제공) -->
+<!-- OrbitControls -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
 <!-- Main JS -->
