@@ -1,6 +1,6 @@
 let scene, camera, renderer, controls;
 
-// 오브젝트 좌표 범위 추적용
+// 오브젝트 좌표 범위 추적
 let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 
@@ -25,7 +25,11 @@ function init() {
   );
   camera.position.set(20, 25, 20);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  // ✅ PNG 저장을 위한 핵심 옵션 포함
+  renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    preserveDrawingBuffer: true
+  });
   renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
   document.getElementById("scene").appendChild(renderer.domElement);
 
@@ -45,7 +49,7 @@ function init() {
 ===================== */
 function createCubeAt(x, y, type) {
 
-  // ✅ 좌표 범위 기록 (Grid 확장용)
+  // 좌표 범위 기록 (Grid 확장용)
   minX = Math.min(minX, x);
   maxX = Math.max(maxX, x);
   minY = Math.min(minY, y);
@@ -54,35 +58,35 @@ function createCubeAt(x, y, type) {
   let color = 0x00aa00;
   let height = 1;
 
-  // ---- 지형 / 특수 오브젝트 ----
+  // 지형 / 특수 오브젝트
   if (type.includes("산맥")) {
-    color = 0x8b4513; // 갈색
+    color = 0x8b4513;
     height = 3;
 
   } else if (type.includes("탄광")) {
-    color = 0x666666; // 회색
-    height = 1;       // ✅ 탄광 z = 1
+    color = 0x666666;
+    height = 1; // ✅ 요청대로 탄광 높이 1
 
   } else if (type.includes("웅덩이")) {
-    color = 0x1e90ff; // 파랑
+    color = 0x1e90ff;
     height = 0.5;
 
   } else if (type.includes("Trap")) {
-    color = 0x8a2be2; // 보라
+    color = 0x8a2be2;
     height = 1;
 
-  // ---- 1~4열 색상 구분 ----
+  // 1~4열 색상 구분
   } else if (type.includes("1열")) {
-    color = 0x7cfc00; // 연두
+    color = 0x7cfc00;
 
   } else if (type.includes("2열")) {
-    color = 0x00aa00; // 초록
+    color = 0x00aa00;
 
   } else if (type.includes("3열")) {
-    color = 0xffa500; // 주황
+    color = 0xffa500;
 
   } else if (type.includes("4열")) {
-    color = 0xdc143c; // 빨강
+    color = 0xdc143c;
   }
 
   const geometry = new THREE.BoxGeometry(1, height, 1);
@@ -94,7 +98,7 @@ function createCubeAt(x, y, type) {
 }
 
 /* =====================
-   파일 로드
+   TXT 파일 로드
 ===================== */
 function loadFile() {
   const file = document.getElementById("fileInput").files[0];
@@ -103,11 +107,10 @@ function loadFile() {
     return;
   }
 
-  // ✅ 초기화 (파일 재로드 대비)
+  // 초기화
   minX = Infinity; maxX = -Infinity;
   minY = Infinity; maxY = -Infinity;
 
-  // 이전 Grid 제거
   if (gridHelper) {
     scene.remove(gridHelper);
     gridHelper = null;
@@ -146,23 +149,17 @@ function parseTXT(text) {
    Grid 자동 확장
 ===================== */
 function updateGrid() {
+  const width = maxX - minX + 1;
+  const depth = maxY - minY + 1;
 
-  // ✅ 실제 타일 기반 범위 계산
-  const width = (maxX - minX + 1);
-  const depth = (maxY - minY + 1);
-
-  // ✅ 반 칸 + 여유 패딩
   const padding = 2;
   const size = Math.max(width, depth) + padding;
 
-  // 기존 Grid 제거
   if (gridHelper) {
     scene.remove(gridHelper);
   }
 
   gridHelper = new THREE.GridHelper(size, size);
-
-  // ✅ Grid 중심을 정확히 타일 중앙에 맞춤
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
@@ -171,13 +168,28 @@ function updateGrid() {
 
   scene.add(gridHelper);
 
-  // ✅ 카메라 타겟도 동일하게 보정
+  // 카메라 중심 보정
   controls.target.set(
     (minX + maxX) / 2,
     0,
     (minY + maxY) / 2
   );
   controls.update();
+}
+
+/* =====================
+   PNG 저장 (전역)
+===================== */
+function savePNG() {
+  if (!renderer) {
+    alert("렌더러가 초기화되지 않았습니다.");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.download = "map_capture.png";
+  link.href = renderer.domElement.toDataURL("image/png");
+  link.click();
 }
 
 /* =====================
