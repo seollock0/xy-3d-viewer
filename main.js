@@ -46,18 +46,26 @@ function addCube() {
 /* =====================
    타입 기반 큐브 생성
 ===================== */
-function createCubeAt(x, y, type = "일반") {
+function createCubeAt(x, y, type) {
+
   let color = 0x00aa00;
   let height = 1;
 
-  if (type === "탄광") {
-    color = 0x000000;
-    height = 2;
-  } else if (type === "산맥") {
-    color = 0x8b4513;
+  if (type.includes("산맥")) {
+    color = 0x8b4513; // 갈색
     height = 3;
-  } else if (type === "Trap") {
-    color = 0xff0000;
+
+  } else if (type.includes("탄광")) {
+    color = 0x666666; // 회색
+    height = 1;       // ✅ 탄광 z=1
+
+  } else if (type.includes("웅덩이")) {
+    color = 0x1e90ff; // 파랑
+    height = 0.5;     // 낮은 웅덩이
+
+  } else if (type.includes("Trap")) {
+    color = 0x8a2be2; // 보라
+    height = 1;
   }
 
   const geometry = new THREE.BoxGeometry(1, height, 1);
