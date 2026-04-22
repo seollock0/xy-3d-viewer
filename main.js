@@ -1,10 +1,17 @@
 let scene, camera, renderer, controls;
 
+// 오브젝트 좌표 범위 추적용
+let minX = Infinity, maxX = -Infinity;
+let minY = Infinity, maxY = -Infinity;
+
+// Grid 참조
+let gridHelper = null;
+
 init();
 animate();
 
 /* =====================
-   기본 초기화
+   초기화
 ===================== */
 function init() {
   scene = new THREE.Scene();
@@ -16,7 +23,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(10, 10, 10);
+  camera.position.set(20, 25, 20);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
@@ -24,41 +31,37 @@ function init() {
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
+  // 조명
   const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(10, 20, 10);
+  light.position.set(20, 30, 20);
   scene.add(light);
-
   scene.add(new THREE.AmbientLight(0x404040));
-  scene.add(new THREE.GridHelper(50, 50));
 
   window.addEventListener("resize", onWindowResize);
 }
 
 /* =====================
-   수동 큐브 생성
-===================== */
-function addCube() {
-  const x = Number(document.getElementById("xInput").value);
-  const y = Number(document.getElementById("yInput").value);
-  createCubeAt(x, y, "일반");
-}
-
-/* =====================
-   타입 기반 큐브 생성
+   오브젝트 생성
 ===================== */
 function createCubeAt(x, y, type) {
 
-  let color = 0x00aa00; // 기본
+  // ✅ 좌표 범위 기록 (Grid 확장용)
+  minX = Math.min(minX, x);
+  maxX = Math.max(maxX, x);
+  minY = Math.min(minY, y);
+  maxY = Math.max(maxY, y);
+
+  let color = 0x00aa00;
   let height = 1;
 
-  // ===== 지형 / 특수 오브젝트 =====
+  // ---- 지형 / 특수 오브젝트 ----
   if (type.includes("산맥")) {
     color = 0x8b4513; // 갈색
     height = 3;
 
   } else if (type.includes("탄광")) {
     color = 0x666666; // 회색
-    height = 1;       // ✅ 요청대로 탄광 z=1
+    height = 1;       // ✅ 탄광 z = 1
 
   } else if (type.includes("웅덩이")) {
     color = 0x1e90ff; // 파랑
@@ -68,7 +71,7 @@ function createCubeAt(x, y, type) {
     color = 0x8a2be2; // 보라
     height = 1;
 
-  // ===== 열 타입 (1~4열) =====
+  // ---- 1~4열 색상 구분 ----
   } else if (type.includes("1열")) {
     color = 0x7cfc00; // 연두
 
@@ -91,49 +94,79 @@ function createCubeAt(x, y, type) {
 }
 
 /* =====================
-   파일 업로드
+   파일 로드
 ===================== */
 function loadFile() {
   const file = document.getElementById("fileInput").files[0];
-  if (!file) return alert("파일을 선택하세요");
+  if (!file) {
+    alert("파일을 선택하세요");
+    return;
+  }
+
+  // ✅ 초기화 (파일 재로드 대비)
+  minX = Infinity; maxX = -Infinity;
+  minY = Infinity; maxY = -Infinity;
+
+  // 이전 Grid 제거
+  if (gridHelper) {
+    scene.remove(gridHelper);
+    gridHelper = null;
+  }
 
   const reader = new FileReader();
-  reader.onload = e => parseCoordinates(e.target.result, file.name);
+  reader.onload = e => {
+    parseTXT(e.target.result);
+    updateGrid();
+  };
   reader.readAsText(file);
 }
 
-function parseCoordinates(text, filename) {
+/* =====================
+   TXT 파싱
+===================== */
+function parseTXT(text) {
   const lines = text.split(/\r?\n/);
 
   lines.forEach(line => {
-    line = line.trim();
-    if (!line) return;
+    const trimmed = line.trim();
+    if (!trimmed) return;
 
-    let x, y, type = "일반";
-    const p = filename.endsWith(".csv")
-      ? line.split(",")
-      : line.split(/\s+/);
+    const parts = trimmed.split(/\s+/);
+    const x = Number(parts[0]);
+    const y = Number(parts[1]);
+    const type = parts.slice(2).join(" ");
 
-    if (p[0] === "x") return;
-
-    x = Number(p[0]);
-    y = Number(p[1]);
-    type = p[2]?.trim() || "일반";
-
-    if (!isNaN(x) && !isNaN(y)) {
+    if (!isNaN(x) && !isNaN(y) && type) {
       createCubeAt(x, y, type);
     }
   });
 }
 
 /* =====================
-   PNG 저장
+   Grid 자동 확장
 ===================== */
-function savePNG() {
-  const link = document.createElement("a");
-  link.download = "3d_scene.png";
-  link.href = renderer.domElement.toDataURL("image/png");
-  link.click();
+function updateGrid() {
+
+  const width = maxX - minX + 10;
+  const depth = maxY - minY + 10;
+  const size = Math.max(width, depth);
+
+  gridHelper = new THREE.GridHelper(size, size);
+  gridHelper.position.set(
+    (minX + maxX) / 2,
+    0,
+    (minY + maxY) / 2
+  );
+
+  scene.add(gridHelper);
+
+  // ✅ 카메라 자동 중앙 보정
+  controls.target.set(
+    (minX + maxX) / 2,
+    0,
+    (minY + maxY) / 2
+  );
+  controls.update();
 }
 
 /* =====================
@@ -141,7 +174,6 @@ function savePNG() {
 ===================== */
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
   renderer.render(scene, camera);
 }
 
