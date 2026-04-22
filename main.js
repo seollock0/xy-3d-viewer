@@ -147,11 +147,22 @@ function parseTXT(text) {
 ===================== */
 function updateGrid() {
 
-  const width = maxX - minX + 10;
-  const depth = maxY - minY + 10;
-  const size = Math.max(width, depth);
+  // ✅ 실제 타일 기반 범위 계산
+  const width = (maxX - minX + 1);
+  const depth = (maxY - minY + 1);
+
+  // ✅ 반 칸 + 여유 패딩
+  const padding = 2;
+  const size = Math.max(width, depth) + padding;
+
+  // 기존 Grid 제거
+  if (gridHelper) {
+    scene.remove(gridHelper);
+  }
 
   gridHelper = new THREE.GridHelper(size, size);
+
+  // ✅ Grid 중심을 정확히 타일 중앙에 맞춤
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
@@ -160,7 +171,7 @@ function updateGrid() {
 
   scene.add(gridHelper);
 
-  // ✅ 카메라 자동 중앙 보정
+  // ✅ 카메라 타겟도 동일하게 보정
   controls.target.set(
     (minX + maxX) / 2,
     0,
