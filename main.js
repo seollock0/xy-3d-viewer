@@ -1,62 +1,55 @@
-let scene, camera, renderer, controls;
+function loadFile() {
+  const fileInput = document.getElementById("fileInput");
+  const file = fileInput.files[0];
 
-init();
-animate();
+  if (!file) {
+    alert("파일을 선택하세요");
+    return;
+  }
 
-function init() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f0f0);
-
-  camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  camera.position.set(10, 10, 10);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
-  document.getElementById("scene").appendChild(renderer.domElement);
-
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-  // 조명
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(10, 20, 10);
-  scene.add(light);
-
-  const ambient = new THREE.AmbientLight(0x404040);
-  scene.add(ambient);
-
-  // 바닥 그리드
-  const grid = new THREE.GridHelper(50, 50);
-  scene.add(grid);
-
-  window.addEventListener("resize", onWindowResize);
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const text = e.target.result;
+    parseCoordinates(text, file.name);
+  };
+  reader.readAsText(file);
 }
 
-function addCube() {
-  const x = Number(document.getElementById("xInput").value);
-  const y = Number(document.getElementById("yInput").value);
-  const z = 1; // 고정
+function parseCoordinates(text, filename) {
+  const lines = text.split(/\r?\n/);
 
+  lines.forEach(line => {
+    line = line.trim();
+    if (!line) return;
+
+    let x, y;
+
+    // CSV
+    if (filename.endsWith(".csv")) {
+      const parts = line.split(",");
+      if (parts[0] === "x") return; // 헤더 스킵
+      x = Number(parts[0]);
+      y = Number(parts[1]);
+    }
+    // TXT
+    else {
+      const parts = line.split(/\s+/);
+      x = Number(parts[0]);
+      y = Number(parts[1]);
+    }
+
+    if (!isNaN(x) && !isNaN(y)) {
+      createCubeAt(x, y);
+    }
+  });
+}
+
+function createCubeAt(x, y) {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
   const material = new THREE.MeshStandardMaterial({ color: 0x00aa00 });
   const cube = new THREE.Mesh(geometry, material);
 
-  cube.position.set(x, z / 2, y); // 바닥 기준
+  cube.position.set(x, 0.5, y);
   scene.add(cube);
 }
-
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth / (window.innerHeight * 0.85);
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
-}
+``
