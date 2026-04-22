@@ -1,10 +1,6 @@
 let scene, camera, renderer, controls;
-
-// 좌표 범위
 let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
-
-// Grid
 let gridHelper = null;
 
 init();
@@ -19,33 +15,46 @@ function init() {
 
   camera = new THREE.PerspectiveCamera(
     60,
-    window.innerWidth / (window.innerHeight * 0.85),
+    window.innerWidth / window.innerHeight,
     0.1,
-    2000
+    3000
   );
-  camera.position.set(20, 30, 20);
+  camera.position.set(30, 35, 30);
 
   renderer = new THREE.WebGLRenderer({
     antialias: true,
     preserveDrawingBuffer: true
   });
-  renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
+
+  /* ✅ 모바일 GPU 보호 */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
   document.getElementById("scene").appendChild(renderer.domElement);
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
+  /* ✅ 터치 UX 튜닝 */
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.rotateSpeed = 0.6;
+  controls.zoomSpeed = 0.8;
+  controls.panSpeed = 0.6;
+  controls.touches = {
+    ONE: THREE.TOUCH.ROTATE,
+    TWO: THREE.TOUCH.DOLLY_PAN
+  };
+
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
-  window.addEventListener("resize", onWindowResize);
+  window.addEventListener("resize", onResize);
 }
 
 /* =====================
-   오브젝트 생성
+   큐브 생성
 ===================== */
 function createCubeAt(x, y, type) {
-
-  // 좌표 범위 기록
   minX = Math.min(minX, x);
   maxX = Math.max(maxX, x);
   minY = Math.min(minY, y);
@@ -54,35 +63,22 @@ function createCubeAt(x, y, type) {
   let color = 0xcccccc;
   let height = 1;
 
-  // ===== 지형 타입 =====
   if (type.includes("산맥")) {
-    color = 0x8b4513;   // 갈색
-    height = 3;
-
+    color = 0x8b4513; height = 3;
   } else if (type.includes("웅덩이")) {
-    color = 0x1e90ff;   // 파랑
-    height = 0.5;
-
+    color = 0x1e90ff; height = 0.5;
   } else if (type.includes("탄광")) {
-    color = 0x666666;   // 회색
-    height = 1;
-
+    color = 0x666666;
   } else if (type.includes("Trap")) {
-    color = 0x800080;   // 보라
-    height = 1;
-
-  // ===== 열 타입 (색상 팔레트 고정) =====
+    color = 0x800080;
   } else if (type.includes("1열")) {
-    color = 0x00ff00;   // 초록
-
+    color = 0x00ff00;
   } else if (type.includes("2열")) {
-    color = 0xaaff00;   // 연두
-
+    color = 0xaaff00;
   } else if (type.includes("3열")) {
-    color = 0xff8800;   // 주황
-
+    color = 0xff8800;
   } else if (type.includes("4열")) {
-    color = 0xcc0000;   // 빨강
+    color = 0xcc0000;
   }
 
   const mesh = new THREE.Mesh(
@@ -90,7 +86,7 @@ function createCubeAt(x, y, type) {
     new THREE.MeshStandardMaterial({ color })
   );
 
-  // 엑셀 좌표계 보정 (Y 반전)
+  /* ✅ 엑셀 좌표계와 일치 */
   mesh.position.set(x, height / 2, -y);
   scene.add(mesh);
 }
@@ -99,39 +95,30 @@ function createCubeAt(x, y, type) {
    TXT 파싱
 ===================== */
 function parseTXT(text) {
-  const lines = text.split(/\r?\n/);
-
-  lines.forEach(line => {
+  text.split(/\r?\n/).forEach(line => {
     const row = line.trim();
     if (!row) return;
 
-    const parts = row.split(/\s+/);
-    const x = Number(parts[0]);
-    const y = Number(parts[1]);
-    const type = parts.slice(2).join(" ");
-
-    if (!isNaN(x) && !isNaN(y) && type) {
-      createCubeAt(x, y, type);
-    }
+    const [x, y, ...rest] = row.split(/\s+/);
+    createCubeAt(Number(x), Number(y), rest.join(" "));
   });
 }
 
 /* =====================
-   Grid 생성
+   Grid
 ===================== */
 function updateGrid() {
   if (gridHelper) scene.remove(gridHelper);
 
-  const width = maxX - minX + 2;
-  const depth = maxY - minY + 2;
-  const size = Math.max(width, depth) + 2;
-
+  const size = Math.max(maxX - minX, maxY - minY) + 6;
   gridHelper = new THREE.GridHelper(size, size);
+
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
     -(minY + maxY) / 2
   );
+
   scene.add(gridHelper);
 
   controls.target.set(
@@ -143,69 +130,44 @@ function updateGrid() {
 }
 
 /* =====================
-   파일 업로드
+   데이터 로딩
 ===================== */
 function loadFile() {
-  const file = document.getElementById("fileInput").files[0];
-  if (!file) return alert("파일을 선택하세요");
+  const f = fileInput.files[0];
+  if (!f) return;
 
   resetScene();
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    parseTXT(e.target.result);
-    updateGrid();
-  };
-  reader.readAsText(file);
+  const r = new FileReader();
+  r.onload = e => { parseTXT(e.target.result); updateGrid(); };
+  r.readAsText(f);
 }
 
-/* =====================
-   ✅ GitHub Issue 로딩
-===================== */
 async function loadFromIssue() {
-  const issueNo = document.getElementById("issueNumber").value;
-  if (!issueNo) return alert("Issue 번호 입력");
+  const n = issueNumber.value;
+  if (!n) return;
 
   resetScene();
-
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNo}`;
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Issue 불러오기 실패");
-
-    const data = await res.json();
-    if (!data.body) throw new Error("Issue 본문에 좌표 없음");
-
-    parseTXT(data.body);
-    updateGrid();
-  } catch (e) {
-    alert(e.message);
-  }
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${n}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  parseTXT(data.body || "");
+  updateGrid();
 }
 
 /* =====================
-   PNG 저장
-===================== */
-function savePNG() {
-  const a = document.createElement("a");
-  a.download = "map_capture.png";
-  a.href = renderer.domElement.toDataURL("image/png");
-  a.click();
-}
-
-/* =====================
-   유틸
+   기타
 ===================== */
 function resetScene() {
   minX = Infinity; maxX = -Infinity;
   minY = Infinity; maxY = -Infinity;
+  scene.children = scene.children.filter(o => o.type.includes("Light"));
+}
 
-  if (gridHelper) scene.remove(gridHelper);
-
-  scene.children = scene.children.filter(
-    o => o.type === "Light" || o.type === "AmbientLight"
-  );
+function savePNG() {
+  const a = document.createElement("a");
+  a.download = "map.png";
+  a.href = renderer.domElement.toDataURL("image/png");
+  a.click();
 }
 
 function animate() {
@@ -213,8 +175,8 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function onWindowResize() {
-  camera.aspect = window.innerWidth / (window.innerHeight * 0.85);
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
