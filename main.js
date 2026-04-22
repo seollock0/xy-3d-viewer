@@ -24,17 +24,12 @@ function init() {
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // 조명
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(10, 20, 10);
   scene.add(light);
 
-  const ambient = new THREE.AmbientLight(0x404040);
-  scene.add(ambient);
-
-  // 바닥 그리드
-  const grid = new THREE.GridHelper(50, 50);
-  scene.add(grid);
+  scene.add(new THREE.AmbientLight(0x404040));
+  scene.add(new THREE.GridHelper(50, 50));
 
   window.addEventListener("resize", onWindowResize);
 }
@@ -52,7 +47,7 @@ function addCube() {
    타입 기반 큐브 생성
 ===================== */
 function createCubeAt(x, y, type = "일반") {
-  let color = 0x00aa00; // 기본
+  let color = 0x00aa00;
   let height = 1;
 
   if (type === "탄광") {
@@ -63,7 +58,76 @@ function createCubeAt(x, y, type = "일반") {
     height = 3;
   } else if (type === "Trap") {
     color = 0xff0000;
-    height = 1;
   }
 
   const geometry = new THREE.BoxGeometry(1, height, 1);
+  const material = new THREE.MeshStandardMaterial({ color });
+  const cube = new THREE.Mesh(geometry, material);
+
+  cube.position.set(x, height / 2, y);
+  scene.add(cube);
+}
+
+/* =====================
+   파일 업로드
+===================== */
+function loadFile() {
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("파일을 선택하세요");
+
+  const reader = new FileReader();
+  reader.onload = e => parseCoordinates(e.target.result, file.name);
+  reader.readAsText(file);
+}
+
+function parseCoordinates(text, filename) {
+  const lines = text.split(/\r?\n/);
+
+  lines.forEach(line => {
+    line = line.trim();
+    if (!line) return;
+
+    let x, y, type = "일반";
+    const p = filename.endsWith(".csv")
+      ? line.split(",")
+      : line.split(/\s+/);
+
+    if (p[0] === "x") return;
+
+    x = Number(p[0]);
+    y = Number(p[1]);
+    type = p[2]?.trim() || "일반";
+
+    if (!isNaN(x) && !isNaN(y)) {
+      createCubeAt(x, y, type);
+    }
+  });
+}
+
+/* =====================
+   PNG 저장
+===================== */
+function savePNG() {
+  const link = document.createElement("a");
+  link.download = "3d_scene.png";
+  link.href = renderer.domElement.toDataURL("image/png");
+  link.click();
+}
+
+/* =====================
+   렌더 루프
+===================== */
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* =====================
+   리사이즈 대응
+===================== */
+function onWindowResize() {
+  camera.aspect = window.innerWidth / (window.innerHeight * 0.85);
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
+}
