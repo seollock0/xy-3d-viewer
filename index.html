@@ -20,18 +20,23 @@
 
   <input type="file" id="fileInput" accept=".csv,.txt">
   <button onclick="loadFile()">파일로 좌표 생성</button>
+
+  <br><br>
+
+  <button onclick="savePNG()">PNG 저장</button>
 </div>
 
 <div id="scene"></div>
 
-<!-- Three.js (r128 구버전, OrbitControls 호환) -->
+<!-- Three.js (r128, OrbitControls 전역 지원) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
-<!-- OrbitControls (전역 THREE.OrbitControls 제공) -->
+<!-- OrbitControls -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-<!-- Main JS -->
+<!-- Main script -->
 <script src="main.js"></script>
 
 </body>
 </html>
+``
