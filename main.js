@@ -13,10 +13,11 @@ const occupiedTilesByType = {
 };
 
 /* =====================
-   Raycaster + HUD
+   Raycaster + HUD + Tile Mesh 관리
 ===================== */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const tileMeshes = [];   // ✅ 클릭 대상 전용 타일 Mesh
 let hud;
 
 init();
@@ -59,7 +60,9 @@ function init() {
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
-  /* ✅ HUD 패널 */
+  /* =====================
+     HUD 패널
+  ===================== */
   hud = document.createElement("div");
   hud.style.position = "fixed";
   hud.style.top = "10px";
@@ -73,7 +76,7 @@ function init() {
   hud.innerText = "타일을 클릭하세요";
   document.body.appendChild(hud);
 
-  /* ✅ 클릭 / 터치 */
+  /* ✅ 클릭 / 터치 이벤트 */
   renderer.domElement.addEventListener("mousedown", onPointerSelect);
   renderer.domElement.addEventListener("touchstart", onPointerSelect);
 
@@ -81,7 +84,7 @@ function init() {
 }
 
 /* =====================
-   단일 타일 생성
+   단일 타일 생성 (클릭 가능 대상)
 ===================== */
 function createTile(x, y, color, height, type) {
   minX = Math.min(minX, x);
@@ -94,12 +97,16 @@ function createTile(x, y, color, height, type) {
     new THREE.MeshStandardMaterial({ color })
   );
 
+  // ✅ 엑셀 좌표계 보정
   mesh.position.set(x, height / 2, -y);
 
-  /* ✅ HUD용 메타데이터 */
+  // ✅ 클릭 시 표시할 메타데이터
   mesh.userData = { x, y, type };
 
   scene.add(mesh);
+
+  // ✅ Raycaster 대상에만 등록
+  tileMeshes.push(mesh);
 }
 
 /* =====================
@@ -222,7 +229,7 @@ function updateGrid() {
 }
 
 /* =====================
-   클릭 / HUD 표시
+   🔥 클릭 / 터치 인터랙션 (핵심)
 ===================== */
 function onPointerSelect(event) {
   let cx, cy;
@@ -241,16 +248,11 @@ function onPointerSelect(event) {
 
   raycaster.setFromCamera(pointer, camera);
 
-  // ✅ recursive=true + 필터링
-  const hits = raycaster.intersectObjects(scene.children, true);
+  // ✅ Grid/Light 제외, 타일만 검사
+  const hits = raycaster.intersectObjects(tileMeshes, false);
 
-  // ✅ userData.type이 있는 타일만 찾기
-  const hit = hits.find(
-    h => h.object && h.object.userData && h.object.userData.type
-  );
-
-  if (hit) {
-    const d = hit.object.userData;
+  if (hits.length > 0) {
+    const d = hits[0].object.userData;
     hud.innerText = `좌표: (${d.x}, ${d.y})\n오브젝트: ${d.type}`;
   }
 }
@@ -268,7 +270,7 @@ function loadFile() {
   r.readAsText(f);
 }
 
-/* ✅ 에러 원인이던 함수: 이제 포함됨 */
+/* ✅ Issue 로딩 */
 async function loadFromIssue() {
   const input = document.getElementById("issueNumber");
   if (!input || !input.value) {
@@ -297,8 +299,12 @@ async function loadFromIssue() {
 function resetScene() {
   minX = Infinity; maxX = -Infinity;
   minY = Infinity; maxY = -Infinity;
+
   Object.values(occupiedTilesByType).forEach(s => s.clear());
+  tileMeshes.length = 0; // ✅ 중요
+
   scene.children = scene.children.filter(o => o.type.includes("Light"));
+
   if (hud) hud.innerText = "타일을 클릭하세요";
 }
 
