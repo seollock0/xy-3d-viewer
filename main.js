@@ -240,10 +240,17 @@ function onPointerSelect(event) {
   pointer.y = -((cy - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(scene.children);
 
-  if (hits.length > 0 && hits[0].object.userData) {
-    const d = hits[0].object.userData;
+  // ✅ recursive=true + 필터링
+  const hits = raycaster.intersectObjects(scene.children, true);
+
+  // ✅ userData.type이 있는 타일만 찾기
+  const hit = hits.find(
+    h => h.object && h.object.userData && h.object.userData.type
+  );
+
+  if (hit) {
+    const d = hit.object.userData;
     hud.innerText = `좌표: (${d.x}, ${d.y})\n오브젝트: ${d.type}`;
   }
 }
