@@ -3,6 +3,14 @@ let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 let gridHelper = null;
 
+/* =====================
+   Raycaster & HUD
+===================== */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const tileMeshes = [];
+let hud;
+
 init();
 animate();
 
@@ -27,7 +35,6 @@ function init() {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
-
   document.getElementById("scene").appendChild(renderer.domElement);
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -36,6 +43,29 @@ function init() {
 
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
+
+  /* =====================
+     HUD 패널
+  ===================== */
+  hud = document.createElement("div");
+  hud.style.position = "fixed";
+  hud.style.top = "10px";
+  hud.style.left = "10px";
+  hud.style.padding = "8px 12px";
+  hud.style.background = "rgba(0,0,0,0.75)";
+  hud.style.color = "#fff";
+  hud.style.fontSize = "13px";
+  hud.style.borderRadius = "6px";
+  hud.style.zIndex = "100";
+  hud.innerText = "타일을 클릭하세요";
+  document.body.appendChild(hud);
+
+  /* ✅ 클릭 이벤트 (OrbitControls 대응: capture 단계) */
+  renderer.domElement.addEventListener(
+    "pointerdown",
+    onPointerSelect,
+    true
+  );
 
   window.addEventListener("resize", onResize);
 }
@@ -78,11 +108,16 @@ function createTile(x, y, type) {
   );
 
   mesh.position.set(x, height / 2, -y);
+
+  /* ✅ 클릭용 메타데이터 */
+  mesh.userData = { x, y, type };
+
   scene.add(mesh);
+  tileMeshes.push(mesh);
 }
 
 /* =====================
-   TXT / Issue 파서 (주석 처리 가능)
+   TXT / Issue 파서 (# 주석 지원)
 ===================== */
 function parseTXT(text) {
   text.split(/\r?\n/).forEach(line => {
@@ -116,7 +151,6 @@ function updateGrid() {
     0,
     -(minY + maxY) / 2
   );
-
   scene.add(gridHelper);
 
   controls.target.set(
@@ -125,6 +159,23 @@ function updateGrid() {
     -(minY + maxY) / 2
   );
   controls.update();
+}
+
+/* =====================
+   클릭 → HUD 표시
+===================== */
+function onPointerSelect(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(tileMeshes, false);
+
+  if (hits.length === 0) return;
+
+  const d = hits[0].object.userData;
+  hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
 }
 
 /* =====================
@@ -165,7 +216,10 @@ function resetScene() {
   minY = Infinity;
   maxY = -Infinity;
 
+  tileMeshes.length = 0;
   scene.children = scene.children.filter(o => o.type.includes("Light"));
+
+  if (hud) hud.innerText = "타일을 클릭하세요";
 }
 
 function animate() {
