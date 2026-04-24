@@ -77,9 +77,8 @@ function init() {
   document.body.appendChild(hud);
 
   /* ✅ 클릭 / 터치 이벤트 */
-  renderer.domElement.addEventListener("mousedown", onPointerSelect);
-  renderer.domElement.addEventListener("touchstart", onPointerSelect);
-
+  renderer.domElement.addEventListener("pointerdown", onPointerSelect, true);
+  
   window.addEventListener("resize", onResize);
 }
 
