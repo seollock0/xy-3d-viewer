@@ -200,10 +200,26 @@ function createObjectAt(x, y, rawType) {
 function parseTXT(text) {
   text.split(/\r?\n/).forEach(line => {
     const row = line.trim();
+
+    // ✅ 1. 빈 줄 무시
     if (!row) return;
 
-    const [x, y, ...rest] = row.split(/\s+/);
-    createObjectAt(Number(x), Number(y), rest.join(" "));
+    // ✅ 2. 주석(#) 무시
+    if (row.startsWith("#")) return;
+
+    const parts = row.split(/\s+/);
+
+    // ✅ 3. 최소한 x y type 이 있어야 함
+    if (parts.length < 3) return;
+
+    const x = Number(parts[0]);
+    const y = Number(parts[1]);
+    const type = parts.slice(2).join(" ");
+
+    // ✅ 4. 숫자 검증
+    if (Number.isNaN(x) || Number.isNaN(y)) return;
+
+    createObjectAt(x, y, type);
   });
 }
 
