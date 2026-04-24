@@ -159,19 +159,22 @@ function createObjectAt(x, y, rawType) {
     dedupKey = "trap";
     tiles = getFootprint(x, y, "trap");
 
-  } else if (
-    rawType.includes("1열") ||
-    rawType.includes("2열") ||
-    rawType.includes("3열") ||
-    rawType.includes("4열")
-  ) {
-    dedupKey = "column";
-    if (rawType.includes("1열")) color = 0x00ff00;
-    if (rawType.includes("2열")) color = 0xaaff00;
-    if (rawType.includes("3열")) color = 0xff8800;
-    if (rawType.includes("4열")) color = 0xcc0000;
-    tiles = getFootprint(x, y, "column");
-  }
+ 
+} else if (
+  rawType.includes("1열") ||
+  rawType.includes("2열") ||
+  rawType.includes("3열") ||
+  rawType.includes("4열")
+) {
+  // ✅ 열은 TXT 그대로 1x1 타일만 생성
+  if (rawType.includes("1열")) color = 0x00ff00;
+  if (rawType.includes("2열")) color = 0xaaff00;
+  if (rawType.includes("3열")) color = 0xff8800;
+  if (rawType.includes("4열")) color = 0xcc0000;
+
+  tiles = [[x, y]];     // ✅ 자동 확장 없음
+  dedupKey = null;      // ✅ 중복 제거 없음
+}
 
   /* ✅ 같은 타입끼리만 중복 제거 */
   if (dedupKey) {
