@@ -4,12 +4,13 @@ let minY = Infinity, maxY = -Infinity;
 let gridHelper = null;
 
 /* =====================
-   Raycaster & HUD
+   Raycaster / HUD / Selection
 ===================== */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tileMeshes = [];
 let hud;
+let selectionOutline = null;
 
 init();
 animate();
@@ -162,7 +163,30 @@ function updateGrid() {
 }
 
 /* =====================
-   클릭 → HUD 표시
+   선택 타일 테두리 표시
+===================== */
+function highlightTile(mesh) {
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline.geometry.dispose();
+    selectionOutline.material.dispose();
+    selectionOutline = null;
+  }
+
+  const box = new THREE.BoxGeometry(1.02, mesh.scale.y * 1.02, 1.02);
+  const edges = new THREE.EdgesGeometry(box);
+  const material = new THREE.LineBasicMaterial({
+    color: 0xffff00
+  });
+
+  selectionOutline = new THREE.LineSegments(edges, material);
+  selectionOutline.position.copy(mesh.position);
+
+  scene.add(selectionOutline);
+}
+
+/* =====================
+   클릭 → HUD + 하이라이트
 ===================== */
 function onPointerSelect(event) {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -174,8 +198,11 @@ function onPointerSelect(event) {
 
   if (hits.length === 0) return;
 
-  const d = hits[0].object.userData;
+  const mesh = hits[0].object;
+  const d = mesh.userData;
+
   hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
+  highlightTile(mesh);
 }
 
 /* =====================
@@ -217,8 +244,15 @@ function resetScene() {
   maxY = -Infinity;
 
   tileMeshes.length = 0;
-  scene.children = scene.children.filter(o => o.type.includes("Light"));
 
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline.geometry.dispose();
+    selectionOutline.material.dispose();
+    selectionOutline = null;
+  }
+
+  scene.children = scene.children.filter(o => o.type.includes("Light"));
   if (hud) hud.innerText = "타일을 클릭하세요";
 }
 
