@@ -3,18 +3,20 @@ let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 let gridHelper = null;
 
-/* ✅ 같은 타입끼리만 중복 제거하기 위한 점유 정보 */
+/* =====================
+   타입별 점유 타일 (중복 제거용)
+===================== */
 const occupiedTilesByType = {
-  mine: new Set(),
-  trap: new Set(),
-  column: new Set()
+  mine: new Set(),     // 탄광
+  trap: new Set(),     // Trap
+  column: new Set()    // 1~4열
 };
 
-/* ✅ Raycaster */
+/* =====================
+   Raycaster + HUD
+===================== */
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-
-/* ✅ HUD DOM */
 let hud;
 
 init();
@@ -39,7 +41,6 @@ function init() {
     antialias: true,
     preserveDrawingBuffer: true
   });
-
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.getElementById("scene").appendChild(renderer.domElement);
@@ -47,11 +48,18 @@ function init() {
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
+  controls.rotateSpeed = 0.6;
+  controls.zoomSpeed = 0.8;
+  controls.panSpeed = 0.6;
+  controls.touches = {
+    ONE: THREE.TOUCH.ROTATE,
+    TWO: THREE.TOUCH.DOLLY_PAN
+  };
 
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
-  /* ✅ HUD 생성 */
+  /* ✅ HUD 패널 */
   hud = document.createElement("div");
   hud.style.position = "fixed";
   hud.style.top = "10px";
@@ -65,7 +73,7 @@ function init() {
   hud.innerText = "타일을 클릭하세요";
   document.body.appendChild(hud);
 
-  /* ✅ 클릭/터치 이벤트 */
+  /* ✅ 클릭 / 터치 */
   renderer.domElement.addEventListener("mousedown", onPointerSelect);
   renderer.domElement.addEventListener("touchstart", onPointerSelect);
 
@@ -88,7 +96,7 @@ function createTile(x, y, color, height, type) {
 
   mesh.position.set(x, height / 2, -y);
 
-  /* ✅ HUD 표시용 메타데이터 */
+  /* ✅ HUD용 메타데이터 */
   mesh.userData = { x, y, type };
 
   scene.add(mesh);
@@ -99,12 +107,14 @@ function createTile(x, y, color, height, type) {
 ===================== */
 function getFootprint(x, y, kind) {
   const tiles = [];
+
   if (kind === "mine" || kind === "column") {
     tiles.push(
       [x, y], [x + 1, y],
       [x, y + 1], [x + 1, y + 1]
     );
   }
+
   if (kind === "trap") {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -112,11 +122,12 @@ function getFootprint(x, y, kind) {
       }
     }
   }
+
   return tiles;
 }
 
 /* =====================
-   오브젝트 생성
+   오브젝트 단위 생성
 ===================== */
 function createObjectAt(x, y, rawType) {
   let color = 0xcccccc;
@@ -153,16 +164,17 @@ function createObjectAt(x, y, rawType) {
     if (rawType.includes("2열")) color = 0xaaff00;
     if (rawType.includes("3열")) color = 0xff8800;
     if (rawType.includes("4열")) color = 0xcc0000;
-
     tiles = getFootprint(x, y, "column");
   }
 
+  /* ✅ 같은 타입끼리만 중복 제거 */
   if (dedupKey) {
     const occupied = occupiedTilesByType[dedupKey];
     const overlap = tiles.some(([tx, ty]) =>
       occupied.has(`${tx},${ty}`)
     );
     if (overlap) return;
+
     tiles.forEach(([tx, ty]) =>
       occupied.add(`${tx},${ty}`)
     );
@@ -174,37 +186,24 @@ function createObjectAt(x, y, rawType) {
 }
 
 /* =====================
-   클릭 HUD 처리
+   TXT 파싱
 ===================== */
-function onPointerSelect(event) {
-  let x, y;
+function parseTXT(text) {
+  text.split(/\r?\n/).forEach(line => {
+    const row = line.trim();
+    if (!row) return;
 
-  if (event.touches) {
-    x = event.touches[0].clientX;
-    y = event.touches[0].clientY;
-  } else {
-    x = event.clientX;
-    y = event.clientY;
-  }
-
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((x - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((y - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(scene.children);
-
-  if (hits.length > 0 && hits[0].object.userData) {
-    const data = hits[0].object.userData;
-    hud.innerText = `좌표: (${data.x}, ${data.y})\n오브젝트: ${data.type}`;
-  }
+    const [x, y, ...rest] = row.split(/\s+/);
+    createObjectAt(Number(x), Number(y), rest.join(" "));
+  });
 }
 
 /* =====================
-   Grid & 기타
+   Grid
 ===================== */
 function updateGrid() {
   if (gridHelper) scene.remove(gridHelper);
+
   const size = Math.max(maxX - minX, maxY - minY) + 6;
   gridHelper = new THREE.GridHelper(size, size);
   gridHelper.position.set(
@@ -213,13 +212,94 @@ function updateGrid() {
     -(minY + maxY) / 2
   );
   scene.add(gridHelper);
+
+  controls.target.set(
+    (minX + maxX) / 2,
+    0,
+    -(minY + maxY) / 2
+  );
+  controls.update();
 }
 
+/* =====================
+   클릭 / HUD 표시
+===================== */
+function onPointerSelect(event) {
+  let cx, cy;
+
+  if (event.touches && event.touches.length > 0) {
+    cx = event.touches[0].clientX;
+    cy = event.touches[0].clientY;
+  } else {
+    cx = event.clientX;
+    cy = event.clientY;
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((cx - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((cy - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(scene.children);
+
+  if (hits.length > 0 && hits[0].object.userData) {
+    const d = hits[0].object.userData;
+    hud.innerText = `좌표: (${d.x}, ${d.y})\n오브젝트: ${d.type}`;
+  }
+}
+
+/* =====================
+   파일 / Issue 로드
+===================== */
+function loadFile() {
+  const f = fileInput.files[0];
+  if (!f) return;
+
+  resetScene();
+  const r = new FileReader();
+  r.onload = e => { parseTXT(e.target.result); updateGrid(); };
+  r.readAsText(f);
+}
+
+/* ✅ 에러 원인이던 함수: 이제 포함됨 */
+async function loadFromIssue() {
+  const input = document.getElementById("issueNumber");
+  if (!input || !input.value) {
+    alert("Issue 번호를 입력하세요");
+    return;
+  }
+
+  try {
+    resetScene();
+    const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Issue 불러오기 실패");
+
+    const data = await res.json();
+    parseTXT(data.body || "");
+    updateGrid();
+
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* =====================
+   기타
+===================== */
 function resetScene() {
   minX = Infinity; maxX = -Infinity;
   minY = Infinity; maxY = -Infinity;
   Object.values(occupiedTilesByType).forEach(s => s.clear());
   scene.children = scene.children.filter(o => o.type.includes("Light"));
+  if (hud) hud.innerText = "타일을 클릭하세요";
+}
+
+function savePNG() {
+  const a = document.createElement("a");
+  a.download = "map.png";
+  a.href = renderer.domElement.toDataURL("image/png");
+  a.click();
 }
 
 function animate() {
