@@ -170,45 +170,6 @@ function createObjectAt(x, y, rawType) {
     createTile(tx, ty, color, height, rawType);
   });
 }
-
-/* =====================
-   GitHub Issue에서 좌표 로딩
-===================== */
-async function loadFromIssue() {
-  const issueInput = document.getElementById("issueNumber");
-  if (!issueInput || !issueInput.value) {
-    alert("Issue 번호를 입력하세요");
-    return;
-  }
-
-  const issueNo = issueInput.value.trim();
-  const owner = "seollock0";
-  const repo = "xy-3d-viewer";
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNo}`;
-
-  try {
-    resetScene();
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error("Issue를 불러오지 못했습니다");
-    }
-
-    const data = await res.json();
-    if (!data.body || !data.body.trim()) {
-      alert("Issue 본문에 좌표 데이터가 없습니다");
-      return;
-    }
-
-    // ✅ Issue 본문을 TXT처럼 그대로 파싱
-    parseTXT(data.body);
-    updateGrid();
-
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
 /* =====================
    TXT 파싱
 ===================== */
@@ -288,6 +249,44 @@ function loadFile() {
   const r = new FileReader();
   r.onload = e => { parseTXT(e.target.result); updateGrid(); };
   r.readAsText(f);
+}
+
+/* =====================
+   GitHub Issue에서 좌표 로딩
+===================== */
+async function loadFromIssue() {
+  const issueInput = document.getElementById("issueNumber");
+  if (!issueInput || !issueInput.value) {
+    alert("Issue 번호를 입력하세요");
+    return;
+  }
+
+  const issueNo = issueInput.value.trim();
+  const owner = "seollock0";
+  const repo = "xy-3d-viewer";
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNo}`;
+
+  try {
+    resetScene();
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error("Issue를 불러오지 못했습니다");
+    }
+
+    const data = await res.json();
+    if (!data.body || !data.body.trim()) {
+      alert("Issue 본문에 좌표 데이터가 없습니다");
+      return;
+    }
+
+    // ✅ Issue 본문을 TXT처럼 그대로 파싱
+    parseTXT(data.body);
+    updateGrid();
+
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 /* =====================
