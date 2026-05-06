@@ -45,9 +45,7 @@ function init() {
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
-  /* =====================
-     HUD
-  ===================== */
+  /* HUD */
   hud = document.createElement("div");
   hud.style.position = "fixed";
   hud.style.top = "10px";
@@ -61,12 +59,7 @@ function init() {
   hud.innerText = "타일을 클릭하세요";
   document.body.appendChild(hud);
 
-  renderer.domElement.addEventListener(
-    "pointerdown",
-    onPointerSelect,
-    true
-  );
-
+  renderer.domElement.addEventListener("pointerdown", onPointerSelect, true);
   window.addEventListener("resize", onResize);
 }
 
@@ -92,7 +85,7 @@ function createTile(x, y, type) {
     color = 0x800080;
   } else if (type.includes("탄광") || type.includes("채집지")) {
     color = 0x666666;
-    type = type.replace("탄광", "채집지");
+    type = "채집지";
   } else if (type.includes("1열")) {
     color = 0x00ff00;
   } else if (type.includes("2열")) {
@@ -116,7 +109,7 @@ function createTile(x, y, type) {
 }
 
 /* =====================
-   깃발 (1x1 오브젝트)
+   깃발 오브젝트 (1x1)
 ===================== */
 function createFlag(x, y) {
   const poleHeight = 1.2;
@@ -140,7 +133,6 @@ function createFlag(x, y) {
   const group = new THREE.Group();
   group.add(pole);
   group.add(flag);
-
   group.userData = { x, y, type: "깃발" };
 
   scene.add(group);
@@ -196,26 +188,6 @@ function updateGrid() {
 }
 
 /* =====================
-   선택 표시
-===================== */
-function highlightTile(mesh) {
-  if (selectionOutline) {
-    scene.remove(selectionOutline);
-    selectionOutline.geometry.dispose();
-    selectionOutline.material.dispose();
-  }
-
-  const box = new THREE.BoxGeometry(1.02, 1.02, 1.02);
-  const edges = new THREE.EdgesGeometry(box);
-  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-
-  selectionOutline = new THREE.LineSegments(edges, material);
-  selectionOutline.position.copy(mesh.position);
-
-  scene.add(selectionOutline);
-}
-
-/* =====================
    클릭 처리
 ===================== */
 function onPointerSelect(event) {
@@ -225,16 +197,51 @@ function onPointerSelect(event) {
 
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(tileMeshes, false);
-
   if (!hits.length) return;
 
   const d = hits[0].object.userData;
   hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
-  highlightTile(hits[0].object);
 }
 
 /* =====================
-   기타
+   파일 TXT 로드
+===================== */
+function loadFile() {
+  const input = document.getElementById("fileInput");
+  const file = input.files[0];
+  if (!file) return;
+
+  resetScene();
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    parseTXT(e.target.result);
+    updateGrid();
+  };
+  reader.readAsText(file);
+}
+
+/* =====================
+   GitHub Issue 로드
+===================== */
+async function loadFromIssue() {
+  const input = document.getElementById("issueNumber");
+  if (!input || !input.value) return;
+
+  resetScene();
+
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (data.body) {
+    parseTXT(data.body);
+    updateGrid();
+  }
+}
+
+/* =====================
+   Reset / Render
 ===================== */
 function resetScene() {
   minX = minY = Infinity;
@@ -242,7 +249,7 @@ function resetScene() {
 
   tileMeshes.length = 0;
   scene.children = scene.children.filter(o => o.type.includes("Light"));
-  if (hud) hud.innerText = "타일을 클릭하세요";
+  hud.innerText = "타일을 클릭하세요";
 }
 
 function animate() {
@@ -255,35 +262,10 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
-async function loadFromIssue() {
-  const input = document.getElementById("issueNumber");
-  if (!input || !input.value) return;
 
-  resetScene();
-
-  const issueNo = input.value;
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNo}`;
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      alert("Issue를 불러오지 못했습니다");
-      return;
-    }
-
-    const data = await res.json();
-
-    // Issue 본문을 TXT로 간주하고 파싱
-    if (data.body) {
-      parseTXT(data.body);
-      updateGrid();
-    }
-  } catch (e) {
-    console.error(e);
-    alert("Issue 로드 중 오류 발생");
-  }
-}
-window.loadFromIssue = loadFromIssue;
+/* =====================
+   전역 노출 (중요)
+===================== */
 window.loadFile = loadFile;
+window.loadFromIssue = loadFromIssue;
 window.resetScene = resetScene;
-window.savePNG = savePNG;
