@@ -2,6 +2,7 @@ let scene, camera, renderer, controls;
 let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 let gridHelper = null;
+let selectionOutline = null;
 
 /* =====================
    Raycaster / HUD / Selection
@@ -199,8 +200,11 @@ function onPointerSelect(event) {
   const hits = raycaster.intersectObjects(tileMeshes, false);
   if (!hits.length) return;
 
-  const d = hits[0].object.userData;
-  hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
+const mesh = hits[0].object;
+const d = mesh.userData;
+
+hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
+highlightTile(mesh);
 }
 
 /* =====================
@@ -262,6 +266,36 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+/* =====================
+   사각형 표기
+===================== */
+function highlightTile(mesh) {
+  // 이전 선택 제거
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline.geometry.dispose();
+    selectionOutline.material.dispose();
+    selectionOutline = null;
+  }
+
+  // 타일 크기 기반 박스 생성
+  const box = new THREE.BoxGeometry(
+    1.05,
+    mesh.geometry.parameters.height * 1.05,
+    1.05
+  );
+
+  const edges = new THREE.EdgesGeometry(box);
+  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+
+  selectionOutline = new THREE.LineSegments(edges, material);
+  selectionOutline.position.copy(mesh.position);
+
+  scene.add(selectionOutline);
+}
+
+
 
 /* =====================
    전역 노출 (중요)
