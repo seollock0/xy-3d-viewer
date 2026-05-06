@@ -255,7 +255,34 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+async function loadFromIssue() {
+  const input = document.getElementById("issueNumber");
+  if (!input || !input.value) return;
 
+  resetScene();
+
+  const issueNo = input.value;
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNo}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      alert("Issue를 불러오지 못했습니다");
+      return;
+    }
+
+    const data = await res.json();
+
+    // Issue 본문을 TXT로 간주하고 파싱
+    if (data.body) {
+      parseTXT(data.body);
+      updateGrid();
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Issue 로드 중 오류 발생");
+  }
+}
 window.loadFromIssue = loadFromIssue;
 window.loadFile = loadFile;
 window.resetScene = resetScene;
