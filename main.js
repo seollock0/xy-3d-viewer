@@ -255,3 +255,8 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+window.loadFromIssue = loadFromIssue;
+window.loadFile = loadFile;
+window.resetScene = resetScene;
+window.savePNG = savePNG;
