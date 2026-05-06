@@ -2,7 +2,6 @@ let scene, camera, renderer, controls;
 let minX = Infinity, maxX = -Infinity;
 let minY = Infinity, maxY = -Infinity;
 let gridHelper = null;
-let selectionOutline = null;
 
 /* =====================
    Raycaster / HUD / Selection
@@ -11,7 +10,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tileMeshes = [];
 let hud;
-let selectionOutline = null;
+let selectionOutline = null; // ✅ 단 1번만 선언
 
 init();
 animate();
@@ -110,7 +109,7 @@ function createTile(x, y, type) {
 }
 
 /* =====================
-   깃발 오브젝트 (1x1)
+   깃발 오브젝트
 ===================== */
 function createFlag(x, y) {
   const poleHeight = 1.2;
@@ -189,6 +188,31 @@ function updateGrid() {
 }
 
 /* =====================
+   선택 사각형 표시
+===================== */
+function highlightTile(mesh) {
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline.geometry.dispose();
+    selectionOutline.material.dispose();
+    selectionOutline = null;
+  }
+
+  const box = new THREE.BoxGeometry(
+    1.05,
+    mesh.geometry.parameters.height * 1.05,
+    1.05
+  );
+
+  const edges = new THREE.EdgesGeometry(box);
+  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+
+  selectionOutline = new THREE.LineSegments(edges, material);
+  selectionOutline.position.copy(mesh.position);
+  scene.add(selectionOutline);
+}
+
+/* =====================
    클릭 처리
 ===================== */
 function onPointerSelect(event) {
@@ -200,20 +224,19 @@ function onPointerSelect(event) {
   const hits = raycaster.intersectObjects(tileMeshes, false);
   if (!hits.length) return;
 
-const mesh = hits[0].object;
-const d = mesh.userData;
+  const mesh = hits[0].object;
+  const d = mesh.userData;
 
-hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
-highlightTile(mesh);
+  hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
+  highlightTile(mesh);
 }
 
 /* =====================
-   파일 TXT 로드
+   파일 / Issue 로드
 ===================== */
 function loadFile() {
   const input = document.getElementById("fileInput");
-  const file = input.files[0];
-  if (!file) return;
+  if (!input.files.length) return;
 
   resetScene();
 
@@ -222,12 +245,9 @@ function loadFile() {
     parseTXT(e.target.result);
     updateGrid();
   };
-  reader.readAsText(file);
+  reader.readAsText(input.files[0]);
 }
 
-/* =====================
-   GitHub Issue 로드
-===================== */
 async function loadFromIssue() {
   const input = document.getElementById("issueNumber");
   if (!input || !input.value) return;
@@ -252,6 +272,11 @@ function resetScene() {
   maxX = maxY = -Infinity;
 
   tileMeshes.length = 0;
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline = null;
+  }
+
   scene.children = scene.children.filter(o => o.type.includes("Light"));
   hud.innerText = "타일을 클릭하세요";
 }
@@ -268,37 +293,7 @@ function onResize() {
 }
 
 /* =====================
-   사각형 표기
-===================== */
-function highlightTile(mesh) {
-  // 이전 선택 제거
-  if (selectionOutline) {
-    scene.remove(selectionOutline);
-    selectionOutline.geometry.dispose();
-    selectionOutline.material.dispose();
-    selectionOutline = null;
-  }
-
-  // 타일 크기 기반 박스 생성
-  const box = new THREE.BoxGeometry(
-    1.05,
-    mesh.geometry.parameters.height * 1.05,
-    1.05
-  );
-
-  const edges = new THREE.EdgesGeometry(box);
-  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-
-  selectionOutline = new THREE.LineSegments(edges, material);
-  selectionOutline.position.copy(mesh.position);
-
-  scene.add(selectionOutline);
-}
-
-
-
-/* =====================
-   전역 노출 (중요)
+   전역 노출
 ===================== */
 window.loadFile = loadFile;
 window.loadFromIssue = loadFromIssue;
