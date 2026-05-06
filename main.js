@@ -46,7 +46,7 @@ function init() {
   scene.add(new THREE.AmbientLight(0x404040));
 
   /* =====================
-     HUD 패널
+     HUD
   ===================== */
   hud = document.createElement("div");
   hud.style.position = "fixed";
@@ -61,7 +61,6 @@ function init() {
   hud.innerText = "타일을 클릭하세요";
   document.body.appendChild(hud);
 
-  /* ✅ 클릭 이벤트 (OrbitControls 대응: capture 단계) */
   renderer.domElement.addEventListener(
     "pointerdown",
     onPointerSelect,
@@ -72,7 +71,7 @@ function init() {
 }
 
 /* =====================
-   단일 타일 생성 (항상 1x1)
+   타일 생성 (1x1)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -91,8 +90,9 @@ function createTile(x, y, type) {
     height = 0.5;
   } else if (type.includes("Trap")) {
     color = 0x800080;
-  } else if (type.includes("탄광")) {
+  } else if (type.includes("탄광") || type.includes("채집지")) {
     color = 0x666666;
+    type = type.replace("탄광", "채집지");
   } else if (type.includes("1열")) {
     color = 0x00ff00;
   } else if (type.includes("2열")) {
@@ -109,8 +109,6 @@ function createTile(x, y, type) {
   );
 
   mesh.position.set(x, height / 2, -y);
-
-  /* ✅ 클릭용 메타데이터 */
   mesh.userData = { x, y, type };
 
   scene.add(mesh);
@@ -118,13 +116,44 @@ function createTile(x, y, type) {
 }
 
 /* =====================
-   TXT / Issue 파서 (# 주석 지원)
+   깃발 (1x1 오브젝트)
+===================== */
+function createFlag(x, y) {
+  const poleHeight = 1.2;
+
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, poleHeight),
+    new THREE.MeshStandardMaterial({ color: 0x333333 })
+  );
+  pole.position.set(x, poleHeight / 2, -y);
+
+  const flag = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.8, 0.5),
+    new THREE.MeshStandardMaterial({
+      color: 0xff0000,
+      side: THREE.DoubleSide
+    })
+  );
+  flag.position.set(x + 0.4, poleHeight - 0.2, -y);
+  flag.rotation.y = Math.PI / 2;
+
+  const group = new THREE.Group();
+  group.add(pole);
+  group.add(flag);
+
+  group.userData = { x, y, type: "깃발" };
+
+  scene.add(group);
+  tileMeshes.push(flag);
+}
+
+/* =====================
+   TXT 파서
 ===================== */
 function parseTXT(text) {
   text.split(/\r?\n/).forEach(line => {
     const row = line.trim();
-    if (!row) return;
-    if (row.startsWith("#")) return;
+    if (!row || row.startsWith("#")) return;
 
     const parts = row.split(/\s+/);
     if (parts.length < 3) return;
@@ -135,7 +164,11 @@ function parseTXT(text) {
 
     if (Number.isNaN(x) || Number.isNaN(y)) return;
 
-    createTile(x, y, type);
+    if (type.includes("깃발")) {
+      createFlag(x, y);
+    } else {
+      createTile(x, y, type);
+    }
   });
 }
 
@@ -163,21 +196,18 @@ function updateGrid() {
 }
 
 /* =====================
-   선택 타일 테두리 표시
+   선택 표시
 ===================== */
 function highlightTile(mesh) {
   if (selectionOutline) {
     scene.remove(selectionOutline);
     selectionOutline.geometry.dispose();
     selectionOutline.material.dispose();
-    selectionOutline = null;
   }
 
-  const box = new THREE.BoxGeometry(1.02, mesh.scale.y * 1.02, 1.02);
+  const box = new THREE.BoxGeometry(1.02, 1.02, 1.02);
   const edges = new THREE.EdgesGeometry(box);
-  const material = new THREE.LineBasicMaterial({
-    color: 0xffff00
-  });
+  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
 
   selectionOutline = new THREE.LineSegments(edges, material);
   selectionOutline.position.copy(mesh.position);
@@ -186,7 +216,7 @@ function highlightTile(mesh) {
 }
 
 /* =====================
-   클릭 → HUD + 하이라이트
+   클릭 처리
 ===================== */
 function onPointerSelect(event) {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -196,62 +226,21 @@ function onPointerSelect(event) {
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(tileMeshes, false);
 
-  if (hits.length === 0) return;
+  if (!hits.length) return;
 
-  const mesh = hits[0].object;
-  const d = mesh.userData;
-
+  const d = hits[0].object.userData;
   hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
-  highlightTile(mesh);
-}
-
-/* =====================
-   데이터 로드
-===================== */
-function loadFile() {
-  const f = fileInput.files[0];
-  if (!f) return;
-
-  resetScene();
-  const r = new FileReader();
-  r.onload = e => {
-    parseTXT(e.target.result);
-    updateGrid();
-  };
-  r.readAsText(f);
-}
-
-async function loadFromIssue() {
-  const n = issueNumber.value;
-  if (!n) return;
-
-  resetScene();
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${n}`;
-  const res = await fetch(url);
-  const data = await res.json();
-
-  parseTXT(data.body || "");
-  updateGrid();
+  highlightTile(hits[0].object);
 }
 
 /* =====================
    기타
 ===================== */
 function resetScene() {
-  minX = Infinity;
-  maxX = -Infinity;
-  minY = Infinity;
-  maxY = -Infinity;
+  minX = minY = Infinity;
+  maxX = maxY = -Infinity;
 
   tileMeshes.length = 0;
-
-  if (selectionOutline) {
-    scene.remove(selectionOutline);
-    selectionOutline.geometry.dispose();
-    selectionOutline.material.dispose();
-    selectionOutline = null;
-  }
-
   scene.children = scene.children.filter(o => o.type.includes("Light"));
   if (hud) hud.innerText = "타일을 클릭하세요";
 }
