@@ -138,7 +138,31 @@ function createFlag(x, y) {
   scene.add(group);
   tileMeshes.push(flag);
 }
+/* =====================
+   TXT 파서
+===================== */
+/* =====================
+   부맹 오브젝트 (2x2, 높이 1)
+===================== */
+function createBumaeng(x, y) {
+  const size = 2;
+  const height = 1;
 
+  // ✅ 1열과 동일한 색상
+  const color = 0x00ff00;
+
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(size, height, size),
+    new THREE.MeshStandardMaterial({ color })
+  );
+
+  // ✅ 2x2 이므로 중심 보정 (+0.5)
+  mesh.position.set(x + 0.5, height / 2, -(y + 0.5));
+  mesh.userData = { x, y, type: "부맹" };
+
+  scene.add(mesh);
+  tileMeshes.push(mesh);
+}
 /* =====================
    TXT 파서
 ===================== */
@@ -157,10 +181,13 @@ function parseTXT(text) {
     if (Number.isNaN(x) || Number.isNaN(y)) return;
 
     if (type.includes("깃발")) {
-      createFlag(x, y);
-    } else {
-      createTile(x, y, type);
-    }
+  createFlag(x, y);
+} else if (type.includes("부맹")) {
+  createBumaeng(x, y);
+} else {
+  createTile(x, y, type);
+}
+
   });
 }
 
