@@ -78,7 +78,7 @@ function init() {
 }
 
 /* =====================
-   범용 타일 생성 (TXT 기준)
+   범용 타일 생성 (✅ y축 반전 반영)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -90,13 +90,15 @@ function createTile(x, y, type) {
     typeColorMap[type] = generateColor();
   }
 
-  const height = 1; // 기본 높이
+  const height = 1;
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(1, height, 1),
     new THREE.MeshStandardMaterial({ color: typeColorMap[type] })
   );
 
-  mesh.position.set(x, height / 2, -y);
+  // ✅ 핵심 변경: y 증가 = 화면 위쪽
+  mesh.position.set(x, height / 2, y);
+
   mesh.userData = { x, y, type };
 
   scene.add(mesh);
@@ -125,7 +127,7 @@ function parseTXT(text) {
 }
 
 /* =====================
-   Grid
+   Grid (✅ y축 기준 통일)
 ===================== */
 function updateGrid() {
   if (gridHelper) scene.remove(gridHelper);
@@ -135,14 +137,14 @@ function updateGrid() {
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
-    -(minY + maxY) / 2
+    (minY + maxY) / 2
   );
   scene.add(gridHelper);
 
   controls.target.set(
     (minX + maxX) / 2,
     0,
-    -(minY + maxY) / 2
+    (minY + maxY) / 2
   );
   controls.update();
 }
@@ -210,7 +212,7 @@ function loadFile() {
 }
 
 /* =====================
-   GitHub Issue 로드 (방법 3)
+   GitHub Issue 로드
 ===================== */
 function loadFromIssue() {
   const input = document.getElementById("issueNumber");
@@ -221,25 +223,14 @@ function loadFromIssue() {
 
   resetScene();
 
-  const issueNumber = input.value;
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNumber}`;
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
 
   fetch(url)
-    .then(res => {
-      if (!res.ok) throw new Error("Issue를 불러올 수 없습니다.");
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
-      if (!data.body) {
-        alert("Issue 본문이 비어 있습니다.");
-        return;
-      }
+      if (!data.body) return;
       parseTXT(data.body);
       updateGrid();
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Issue 로드 중 오류가 발생했습니다.");
     });
 }
 
@@ -257,7 +248,7 @@ function resetScene() {
   }
 
   scene.children = scene.children.filter(o => o.type.includes("Light"));
-  if (hud) hud.innerText = "타일을 클릭하세요";
+  hud.innerText = "타일을 클릭하세요";
 }
 
 function animate() {
