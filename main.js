@@ -10,7 +10,22 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tileMeshes = [];
 let hud;
-let selectionOutline = null; // ✅ 단 1번만 선언
+let selectionOutline = null;
+
+/* =====================
+   ✅ 타입 기반 자동 색상 시스템
+===================== */
+const typeColorMap = {};
+
+function generateColor() {
+  const h = Math.random();                 // Hue
+  const s = 0.55 + Math.random() * 0.3;
+  const l = 0.45 + Math.random() * 0.2;
+
+  const color = new THREE.Color();
+  color.setHSL(h, s, l);
+  return color;
+}
 
 init();
 animate();
@@ -64,7 +79,7 @@ function init() {
 }
 
 /* =====================
-   타일 생성 (1x1)
+   ✅ 범용 타일 생성 (TXT 기준)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -72,33 +87,14 @@ function createTile(x, y, type) {
   minY = Math.min(minY, y);
   maxY = Math.max(maxY, y);
 
-  let color = 0xcccccc;
-  let height = 1;
-
-  if (type.includes("산맥")) {
-    color = 0x8b4513;
-    height = 3;
-  } else if (type.includes("웅덩이")) {
-    color = 0x1e90ff;
-    height = 0.5;
-  } else if (type.includes("Trap")) {
-    color = 0x800080;
-  } else if (type.includes("탄광") || type.includes("채집지")) {
-    color = 0x666666;
-    type = "채집지";
-  } else if (type.includes("1열")) {
-    color = 0x00ff00;
-  } else if (type.includes("2열")) {
-    color = 0xaaff00;
-  } else if (type.includes("3열")) {
-    color = 0xff8800;
-  } else if (type.includes("4열")) {
-    color = 0xcc0000;
+  if (!typeColorMap[type]) {
+    typeColorMap[type] = generateColor();
   }
 
+  const height = 1;
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(1, height, 1),
-    new THREE.MeshStandardMaterial({ color })
+    new THREE.MeshStandardMaterial({ color: typeColorMap[type] })
   );
 
   mesh.position.set(x, height / 2, -y);
@@ -108,61 +104,6 @@ function createTile(x, y, type) {
   tileMeshes.push(mesh);
 }
 
-/* =====================
-   깃발 오브젝트
-===================== */
-function createFlag(x, y) {
-  const poleHeight = 1.2;
-
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.05, poleHeight),
-    new THREE.MeshStandardMaterial({ color: 0x333333 })
-  );
-  pole.position.set(x, poleHeight / 2, -y);
-
-  const flag = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.8, 0.5),
-    new THREE.MeshStandardMaterial({
-      color: 0xff0000,
-      side: THREE.DoubleSide
-    })
-  );
-  flag.position.set(x + 0.4, poleHeight - 0.2, -y);
-  flag.rotation.y = Math.PI / 2;
-
-  const group = new THREE.Group();
-  group.add(pole);
-  group.add(flag);
-  group.userData = { x, y, type: "깃발" };
-
-  scene.add(group);
-  tileMeshes.push(flag);
-}
-/* =====================
-   TXT 파서
-===================== */
-/* =====================
-   부맹 오브젝트 (2x2, 높이 1)
-===================== */
-function createBumaeng(x, y) {
-  const size = 2;
-  const height = 1;
-
-  // ✅ 1열과 동일한 색상
-  const color = 0x00ff00;
-
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(size, height, size),
-    new THREE.MeshStandardMaterial({ color })
-  );
-
-  // ✅ 2x2 이므로 중심 보정 (+0.5)
-  mesh.position.set(x + 0.5, height / 2, -(y + 0.5));
-  mesh.userData = { x, y, type: "부맹" };
-
-  scene.add(mesh);
-  tileMeshes.push(mesh);
-}
 /* =====================
    TXT 파서
 ===================== */
@@ -180,14 +121,7 @@ function parseTXT(text) {
 
     if (Number.isNaN(x) || Number.isNaN(y)) return;
 
-    if (type.includes("깃발")) {
-  createFlag(x, y);
-} else if (type.includes("부맹")) {
-  createBumaeng(x, y);
-} else {
-  createTile(x, y, type);
-}
-
+    createTile(x, y, type);
   });
 }
 
@@ -225,10 +159,11 @@ function highlightTile(mesh) {
     selectionOutline = null;
   }
 
+  const geo = mesh.geometry.parameters;
   const box = new THREE.BoxGeometry(
-    1.05,
-    mesh.geometry.parameters.height * 1.05,
-    1.05
+    (geo.width || 1) * 1.05,
+    (geo.height || 1) * 1.05,
+    (geo.depth || 1) * 1.05
   );
 
   const edges = new THREE.EdgesGeometry(box);
@@ -254,12 +189,12 @@ function onPointerSelect(event) {
   const mesh = hits[0].object;
   const d = mesh.userData;
 
-  hud.innerText = `좌표: (${d.x}, ${d.y})\n타입: ${d.type}`;
+  hud.innerText = `좌표: (${d.x}, ${d.y})\n오브젝트: ${d.type}`;
   highlightTile(mesh);
 }
 
 /* =====================
-   파일 / Issue 로드
+   파일 로드
 ===================== */
 function loadFile() {
   const input = document.getElementById("fileInput");
@@ -275,30 +210,14 @@ function loadFile() {
   reader.readAsText(input.files[0]);
 }
 
-async function loadFromIssue() {
-  const input = document.getElementById("issueNumber");
-  if (!input || !input.value) return;
-
-  resetScene();
-
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
-  const res = await fetch(url);
-  const data = await res.json();
-
-  if (data.body) {
-    parseTXT(data.body);
-    updateGrid();
-  }
-}
-
 /* =====================
    Reset / Render
 ===================== */
 function resetScene() {
   minX = minY = Infinity;
   maxX = maxY = -Infinity;
-
   tileMeshes.length = 0;
+
   if (selectionOutline) {
     scene.remove(selectionOutline);
     selectionOutline = null;
@@ -323,5 +242,4 @@ function onResize() {
    전역 노출
 ===================== */
 window.loadFile = loadFile;
-window.loadFromIssue = loadFromIssue;
 window.resetScene = resetScene;
