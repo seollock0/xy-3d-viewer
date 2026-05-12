@@ -192,7 +192,7 @@ function highlightTile(mesh) {
   );
 
   const edges = new THREE.EdgesGeometry(box);
-  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+  const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
 
   selectionOutline = new THREE.LineSegments(edges, material);
   selectionOutline.position.copy(mesh.position);
