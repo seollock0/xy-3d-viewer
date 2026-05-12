@@ -13,16 +13,41 @@ let hud;
 let selectionOutline = null;
 
 /* =====================
-   타입 기반 자동 색상 시스템
+   ✅ 색상 풀 기반 자동 배정 (중복 회피)
 ===================== */
+
+// 사람이 구분하기 쉬운 색상들
+const COLOR_POOL = [
+  0xe6194b, // red
+  0x3cb44b, // green
+  0xffe119, // yellow
+  0x4363d8, // blue
+  0xf58231, // orange
+  0x911eb4, // purple
+  0x46f0f0, // cyan
+  0xf032e6, // magenta
+  0xbcf60c, // lime
+  0xfabebe  // pink
+];
+
+// 사용된 색상 기록
+const usedColors = new Set();
+
+// 타입 → 색상 매핑
 const typeColorMap = {};
 
-function generateColor() {
-  const h = Math.random();
-  const s = 0.55 + Math.random() * 0.3;
-  const l = 0.45 + Math.random() * 0.2;
+function getNextAvailableColor() {
+  // 1) 아직 사용하지 않은 색상 우선
+  for (const hex of COLOR_POOL) {
+    if (!usedColors.has(hex)) {
+      usedColors.add(hex);
+      return new THREE.Color(hex);
+    }
+  }
+
+  // 2) 모두 사용했으면 랜덤 fallback
   const color = new THREE.Color();
-  color.setHSL(h, s, l);
+  color.setHSL(Math.random(), 0.6, 0.5);
   return color;
 }
 
@@ -78,7 +103,7 @@ function init() {
 }
 
 /* =====================
-   범용 타일 생성 (✅ y축 반전 반영)
+   범용 타일 생성 (✅ y 증가 = 위쪽)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -87,7 +112,7 @@ function createTile(x, y, type) {
   maxY = Math.max(maxY, y);
 
   if (!typeColorMap[type]) {
-    typeColorMap[type] = generateColor();
+    typeColorMap[type] = getNextAvailableColor();
   }
 
   const height = 1;
@@ -96,11 +121,10 @@ function createTile(x, y, type) {
     new THREE.MeshStandardMaterial({ color: typeColorMap[type] })
   );
 
-  // ✅ 핵심 변경: y 증가 = 화면 위쪽
+  // ✅ 실제 지도 기준: y가 클수록 위쪽
   mesh.position.set(x, height / 2, y);
 
   mesh.userData = { x, y, type };
-
   scene.add(mesh);
   tileMeshes.push(mesh);
 }
@@ -127,7 +151,7 @@ function parseTXT(text) {
 }
 
 /* =====================
-   Grid (✅ y축 기준 통일)
+   Grid
 ===================== */
 function updateGrid() {
   if (gridHelper) scene.remove(gridHelper);
@@ -212,7 +236,7 @@ function loadFile() {
 }
 
 /* =====================
-   GitHub Issue 로드
+   GitHub Issue 로드 (방법 3)
 ===================== */
 function loadFromIssue() {
   const input = document.getElementById("issueNumber");
@@ -224,14 +248,14 @@ function loadFromIssue() {
   resetScene();
 
   const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
-
   fetch(url)
     .then(res => res.json())
     .then(data => {
       if (!data.body) return;
       parseTXT(data.body);
       updateGrid();
-    });
+    })
+    .catch(err => console.error(err));
 }
 
 /* =====================
@@ -241,6 +265,8 @@ function resetScene() {
   minX = minY = Infinity;
   maxX = maxY = -Infinity;
   tileMeshes.length = 0;
+  usedColors.clear();
+  for (const k in typeColorMap) delete typeColorMap[k];
 
   if (selectionOutline) {
     scene.remove(selectionOutline);
