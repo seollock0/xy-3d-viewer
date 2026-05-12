@@ -13,15 +13,14 @@ let hud;
 let selectionOutline = null;
 
 /* =====================
-   ✅ 타입 기반 자동 색상 시스템
+   타입 기반 자동 색상 시스템
 ===================== */
 const typeColorMap = {};
 
 function generateColor() {
-  const h = Math.random();                 // Hue
+  const h = Math.random();
   const s = 0.55 + Math.random() * 0.3;
   const l = 0.45 + Math.random() * 0.2;
-
   const color = new THREE.Color();
   color.setHSL(h, s, l);
   return color;
@@ -79,7 +78,7 @@ function init() {
 }
 
 /* =====================
-   ✅ 범용 타일 생성 (TXT 기준)
+   범용 타일 생성 (TXT 기준)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -91,7 +90,7 @@ function createTile(x, y, type) {
     typeColorMap[type] = generateColor();
   }
 
-  const height = 1;
+  const height = 1; // 기본 높이
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(1, height, 1),
     new THREE.MeshStandardMaterial({ color: typeColorMap[type] })
@@ -194,7 +193,7 @@ function onPointerSelect(event) {
 }
 
 /* =====================
-   파일 로드
+   파일(TXT) 로드
 ===================== */
 function loadFile() {
   const input = document.getElementById("fileInput");
@@ -211,6 +210,40 @@ function loadFile() {
 }
 
 /* =====================
+   GitHub Issue 로드 (방법 3)
+===================== */
+function loadFromIssue() {
+  const input = document.getElementById("issueNumber");
+  if (!input || !input.value) {
+    alert("Issue 번호를 입력하세요.");
+    return;
+  }
+
+  resetScene();
+
+  const issueNumber = input.value;
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${issueNumber}`;
+
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error("Issue를 불러올 수 없습니다.");
+      return res.json();
+    })
+    .then(data => {
+      if (!data.body) {
+        alert("Issue 본문이 비어 있습니다.");
+        return;
+      }
+      parseTXT(data.body);
+      updateGrid();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Issue 로드 중 오류가 발생했습니다.");
+    });
+}
+
+/* =====================
    Reset / Render
 ===================== */
 function resetScene() {
@@ -224,7 +257,7 @@ function resetScene() {
   }
 
   scene.children = scene.children.filter(o => o.type.includes("Light"));
-  hud.innerText = "타일을 클릭하세요";
+  if (hud) hud.innerText = "타일을 클릭하세요";
 }
 
 function animate() {
@@ -242,4 +275,5 @@ function onResize() {
    전역 노출
 ===================== */
 window.loadFile = loadFile;
+window.loadFromIssue = loadFromIssue;
 window.resetScene = resetScene;
