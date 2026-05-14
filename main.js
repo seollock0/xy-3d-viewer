@@ -122,7 +122,7 @@ function createTile(x, y, type) {
   );
 
   // ✅ 실제 지도 기준: y가 클수록 위쪽
-  mesh.position.set(x, height / 2, y);
+  mesh.position.set(x, height / 2, -y);
 
   mesh.userData = { x, y, type };
   scene.add(mesh);
