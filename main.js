@@ -13,39 +13,23 @@ let hud;
 let selectionOutline = null;
 
 /* =====================
-   ✅ 색상 풀 기반 자동 배정 (중복 회피)
+   색상 풀
 ===================== */
-
-// 사람이 구분하기 쉬운 색상들
 const COLOR_POOL = [
-  0xe6194b, // red
-  0x3cb44b, // green
-  0xffe119, // yellow
-  0x4363d8, // blue
-  0xf58231, // orange
-  0x911eb4, // purple
-  0x46f0f0, // cyan
-  0xf032e6, // magenta
-  0xbcf60c, // lime
-  0xfabebe  // pink
+  0xe6194b, 0x3cb44b, 0xffe119, 0x4363d8, 0xf58231,
+  0x911eb4, 0x46f0f0, 0xf032e6, 0xbcf60c, 0xfabebe
 ];
 
-// 사용된 색상 기록
 const usedColors = new Set();
-
-// 타입 → 색상 매핑
 const typeColorMap = {};
 
 function getNextAvailableColor() {
-  // 1) 아직 사용하지 않은 색상 우선
   for (const hex of COLOR_POOL) {
     if (!usedColors.has(hex)) {
       usedColors.add(hex);
       return new THREE.Color(hex);
     }
   }
-
-  // 2) 모두 사용했으면 랜덤 fallback
   const color = new THREE.Color();
   color.setHSL(Math.random(), 0.6, 0.5);
   return color;
@@ -73,6 +57,7 @@ function init() {
     antialias: true,
     preserveDrawingBuffer: true
   });
+
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.getElementById("scene").appendChild(renderer.domElement);
@@ -84,7 +69,7 @@ function init() {
   scene.add(new THREE.DirectionalLight(0xffffff, 1));
   scene.add(new THREE.AmbientLight(0x404040));
 
-  /* HUD */
+  // HUD
   hud = document.createElement("div");
   hud.style.position = "fixed";
   hud.style.top = "10px";
@@ -103,7 +88,7 @@ function init() {
 }
 
 /* =====================
-   범용 타일 생성 (✅ y 증가 = 위쪽)
+   타일 생성 (✅ 핵심 수정)
 ===================== */
 function createTile(x, y, type) {
   minX = Math.min(minX, x);
@@ -121,7 +106,7 @@ function createTile(x, y, type) {
     new THREE.MeshStandardMaterial({ color: typeColorMap[type] })
   );
 
-  // ✅ 실제 지도 기준: y가 클수록 위쪽
+  // ✅ Y 뒤집기
   mesh.position.set(x, height / 2, -y);
 
   mesh.userData = { x, y, type };
@@ -151,44 +136,49 @@ function parseTXT(text) {
 }
 
 /* =====================
-   Grid
+   Grid (✅ 같이 반전)
 ===================== */
 function updateGrid() {
   if (gridHelper) scene.remove(gridHelper);
 
   const size = Math.max(maxX - minX, maxY - minY) + 6;
   gridHelper = new THREE.GridHelper(size, size);
+
+  // ✅ 중심도 같이 뒤집기
   gridHelper.position.set(
     (minX + maxX) / 2,
     0,
-    (minY + maxY) / 2
+    -(minY + maxY) / 2
   );
+
   scene.add(gridHelper);
 
+  // ✅ 카메라도 동일 기준
   controls.target.set(
     (minX + maxX) / 2,
     0,
-    (minY + maxY) / 2
+    -(minY + maxY) / 2
   );
+
   controls.update();
 }
 
 /* =====================
-   선택 사각형 표시
+   선택 표시
 ===================== */
 function highlightTile(mesh) {
   if (selectionOutline) {
     scene.remove(selectionOutline);
     selectionOutline.geometry.dispose();
     selectionOutline.material.dispose();
-    selectionOutline = null;
   }
 
   const geo = mesh.geometry.parameters;
+
   const box = new THREE.BoxGeometry(
-    (geo.width || 1) * 1.05,
-    (geo.height || 1) * 1.05,
-    (geo.depth || 1) * 1.05
+    geo.width * 1.05,
+    geo.height * 1.05,
+    geo.depth * 1.05
   );
 
   const edges = new THREE.EdgesGeometry(box);
@@ -196,6 +186,7 @@ function highlightTile(mesh) {
 
   selectionOutline = new THREE.LineSegments(edges, material);
   selectionOutline.position.copy(mesh.position);
+
   scene.add(selectionOutline);
 }
 
@@ -208,6 +199,7 @@ function onPointerSelect(event) {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(pointer, camera);
+
   const hits = raycaster.intersectObjects(tileMeshes, false);
   if (!hits.length) return;
 
@@ -219,7 +211,7 @@ function onPointerSelect(event) {
 }
 
 /* =====================
-   파일(TXT) 로드
+   파일 로드
 ===================== */
 function loadFile() {
   const input = document.getElementById("fileInput");
@@ -232,34 +224,12 @@ function loadFile() {
     parseTXT(e.target.result);
     updateGrid();
   };
+
   reader.readAsText(input.files[0]);
 }
 
 /* =====================
-   GitHub Issue 로드 (방법 3)
-===================== */
-function loadFromIssue() {
-  const input = document.getElementById("issueNumber");
-  if (!input || !input.value) {
-    alert("Issue 번호를 입력하세요.");
-    return;
-  }
-
-  resetScene();
-
-  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
-  fetch(url)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.body) return;
-      parseTXT(data.body);
-      updateGrid();
-    })
-    .catch(err => console.error(err));
-}
-
-/* =====================
-   Reset / Render
+   Reset
 ===================== */
 function resetScene() {
   minX = minY = Infinity;
@@ -289,8 +259,7 @@ function onResize() {
 }
 
 /* =====================
-   전역 노출
+   전역
 ===================== */
 window.loadFile = loadFile;
-window.loadFromIssue = loadFromIssue;
 window.resetScene = resetScene;
