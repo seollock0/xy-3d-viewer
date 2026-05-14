@@ -259,7 +259,40 @@ function onResize() {
 }
 
 /* =====================
+   GitHub Issue 로드
+===================== */
+function loadFromIssue() {
+  const input = document.getElementById("issueNumber");
+
+  if (!input || !input.value) {
+    alert("Issue 번호를 입력하세요.");
+    return;
+  }
+
+  resetScene();
+
+  const url = `https://api.github.com/repos/seollock0/xy-3d-viewer/issues/${input.value}`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.body) {
+        alert("Issue 내용이 없습니다.");
+        return;
+      }
+
+      parseTXT(data.body);
+      updateGrid();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Issue 로딩 실패");
+    });
+}
+
+/* =====================
    전역
 ===================== */
 window.loadFile = loadFile;
 window.resetScene = resetScene;
+window.loadFromIssue = loadFromIssue;
